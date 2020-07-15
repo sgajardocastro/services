@@ -1,0 +1,294 @@
+package cl.gesvita.ws.obteneravancetargrupov2;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.net.URL;
+
+import oracle.jdbc.OracleTypes;
+import oracle.sql.CLOB;
+
+import java.sql.CallableStatement;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import java.text.SimpleDateFormat;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.google.gson.Gson;
+
+import org.apache.tomcat.jdbc.pool.DataSource;
+import org.apache.tomcat.jdbc.pool.PoolProperties;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+
+import java.util.Properties;
+import java.util.regex.PatternSyntaxException;
+
+
+/**
+ * Servlet implementation class ObtenerAvancetarGrupoV2
+ */
+@WebServlet("/ObtenerAvancetarGrupoV2")
+public class ObtenerAvancetarGrupoV2 extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+    static Logger logger = Logger.getLogger(ObtenerAvancetarGrupoV2.class);
+
+    /**
+     * @see HttpServlet#HttpServlet()
+     */
+    public ObtenerAvancetarGrupoV2() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+
+    /**
+     * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+     */
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("application/json");
+        String requestS = "";
+
+        PrintWriter out = response.getWriter();
+        try {
+            Class.forName("oracle.jdbc.driver.OracleDriver");
+        } catch (ClassNotFoundException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+
+        Properties prop = new Properties();
+        Properties propsLog4 = new Properties();
+        PoolProperties p = new PoolProperties();
+
+        InputStream inputStreamLog4 = this.getClass().getResourceAsStream("log4j.properties");
+        propsLog4.load(inputStreamLog4);
+        PropertyConfigurator.configure(propsLog4);
+        String archivoPro = System.getProperty("catalina.base") + "/webapps/propiedades/db.properties";
+
+        prop.load(new FileInputStream(archivoPro));
+
+        p.setUrl(prop.getProperty("urlConexion"));
+        p.setDriverClassName(prop.getProperty("driverClass"));
+        p.setUsername(prop.getProperty("userName"));
+        p.setPassword(prop.getProperty("password"));
+        p.setJmxEnabled(Boolean.parseBoolean(prop.getProperty("jmxEnabled")));
+        p.setTestWhileIdle(Boolean.parseBoolean(prop.getProperty("testWhileIdle")));
+        p.setTestOnBorrow(Boolean.parseBoolean(prop.getProperty("testOnBorrow")));
+        p.setValidationQuery(prop.getProperty("validationQuery"));
+        p.setTestOnReturn(Boolean.parseBoolean(prop.getProperty("testOnReturn")));
+        p.setValidationInterval(Long.parseLong(prop.getProperty("validationInterval")));
+        p.setTimeBetweenEvictionRunsMillis(Integer.parseInt(prop.getProperty("timeBetweenEvictionRunsMillis")));
+        p.setMaxActive(Integer.parseInt(prop.getProperty("maxActive")));
+        p.setInitialSize(Integer.parseInt(prop.getProperty("initialSize")));
+        p.setMaxWait(Integer.parseInt(prop.getProperty("maxWait")));
+        p.setRemoveAbandonedTimeout(Integer.parseInt(prop.getProperty("removeAbandonedTimeout")));
+        p.setMinEvictableIdleTimeMillis(Integer.parseInt(prop.getProperty("minEvictableIdleTimeMillis")));
+        p.setMinIdle(Integer.parseInt(prop.getProperty("minIdle")));
+        p.setLogAbandoned(Boolean.parseBoolean(prop.getProperty("logAbandoned")));
+        p.setRemoveAbandoned(Boolean.parseBoolean(prop.getProperty("removeAbandoned")));
+        p.setJdbcInterceptors(
+                "org.apache.tomcat.jdbc.pool.interceptor.ConnectionState;"+
+                "org.apache.tomcat.jdbc.pool.interceptor.StatementFinalizer");
+
+        DataSource datasource = new DataSource();
+        datasource.setPoolProperties(p);
+
+        Map<String, Object> dataIndividual = null;
+        Map<String, Object> dataGrupal = null;
+        Connection connection = null;
+        Statement  stmt = null;
+        ResultSet rs = null;
+        Gson gson = new Gson();
+        int totalRegistro=0;
+
+        Map<String, String> m = new HashMap<String, String>();
+        try {
+            StringBuilder sb = new StringBuilder();
+
+        String s;
+        while ((s = request.getReader().readLine()) != null) {
+            sb.append(s);
+        }
+        //obtener json a array
+        requestS = sb.toString();
+
+        if (requestS.length() > 0)
+        {
+            requestS = requestS.substring(0, sb.length() - 1);
+            requestS = requestS.substring(1);
+        }
+        String[] splitStr = null;
+
+        int iTot = 0;
+        requestS = requestS.replace("\"", "");
+        requestS = requestS.replace("\'", "");
+        if (requestS.length() > 0)
+        {
+            if (requestS.contains(","))
+            {
+                splitStr = requestS.split(",");
+                for (String val : splitStr)
+                {
+                    String[] srSpl = val.split(":");
+                    m.put(srSpl[0].trim().toString(), srSpl[1].trim().toString());
+                }
+            }
+            else
+            {
+                String[] srSpl = requestS.split(":");
+                m.put(srSpl[0].trim().toString(), srSpl[1].trim().toString());
+            }
+        }
+            logger.info("JSON cargado");
+        }
+        catch (NullPointerException e1)
+        {
+            logger.error("Ha ocurrido un error de tipo NullPointer. " + e1.getMessage());
+        }
+        catch (IllegalArgumentException e2)
+        {
+            logger.error("Ha ocurrido un error de tipo IllegalArgument. " + e2.getMessage());
+        }
+        catch (IndexOutOfBoundsException e3)
+        {
+            logger.error("Ha ocurrido un error de tipo IndexOutOfBounds. "+e3.getMessage());
+        }
+        catch (Exception e4)
+        {
+            logger.error("Ha ocurrido un error. " + e4.getMessage());
+        }
+
+        try {
+            connection = datasource.getConnection();
+            stmt = connection.createStatement();
+            logger.info("SELECT * FROM VW_PROYECTO_AVANCETARGRUPO avtar WHERE avtar.id_proyecto_template="+m.get("id_proyecto_template")+" and (exists(select 1 from VW_SEGURIDAD_USERSGRUPO ugrup where avtar.CODI_GRUPO_PROYECTO = ugrup.CODI_GRUPO and 	ugrup.id_usuario = "+m.get("id_usuario")+") or exists (select 1 from vw_seguridad_usuario usuario where usuario.id_usuario = "+m.get("id_usuario")+" and usuario.ID_ROL = 10) or exists (select 1 from vw_seguridad_usuario usuario, vw_seguridad_grupo grupo, tb_grupo_tipo grtipo where usuario.id_usuario = "+m.get("id_usuario")+" and usuario.ID_ROL in (11,2) and avtar.CODI_GRUPO_PROYECTO = grupo.CODI_GRUPOand grupo.id_tipo_grupo = grtipo.id_tipo_grupo and 	grtipo.NOMBRE_TIPO = 'MESATRABAJO' and grtipo.id_area = usuario.ID_AREA ) )");
+            rs = stmt.executeQuery("SELECT * FROM VW_PROYECTO_AVANCETARGRUPO avtar WHERE DECODE('"+m.get("id_empresa")+"', 'null', '*', ID_EMPRESA) = DECODE('"+m.get("id_empresa")+"', 'null', '*', "+m.get("id_empresa")+") AND DECODE('"+m.get("id_estado_proyecto")+"', '-1', '-1', ID_ESTADO_PROYECTO) = DECODE('"+m.get("id_estado_proyecto")+"', '-1', '-1', "+m.get("id_estado_proyecto")+") and avtar.id_proyecto_template="+m.get("id_proyecto_template")+" and (exists(select 1 from VW_SEGURIDAD_USERSGRUPO ugrup where avtar.CODI_GRUPO_PROYECTO = ugrup.CODI_GRUPO and ugrup.id_usuario = "+m.get("id_usuario")+") or exists (select 1 from vw_seguridad_usuario usuario where usuario.id_usuario = "+m.get("id_usuario")+" and usuario.ID_ROL = 10) or exists (select 1 from vw_seguridad_usuario usuario, vw_seguridad_grupo grupo, tb_grupo_tipo grtipo where usuario.id_usuario = "+m.get("id_usuario")+" and usuario.ID_ROL in (11,2) and avtar.CODI_GRUPO_PROYECTO = grupo.CODI_GRUPO and grupo.id_tipo_grupo = grtipo.id_tipo_grupo and 	grtipo.NOMBRE_TIPO = 'MESATRABAJO' and grupo.id_area_grupo = usuario.ID_AREA ) )");
+			//rs = stmt.executeQuery("select * from VW_PROYECTO_AVANCETARGRUPO avtar where exists(select 1 from VW_SEGURIDAD_USERSGRUPO ugrup where avtar.CODI_GRUPO_PROYECTO = ugrup.CODI_GRUPO and 	ugrup.id_usuario = "+m.get("id_usuario")+") or exists (select 1 from vw_seguridad_usuario usuario where usuario.id_usuario = "+m.get("id_usuario")+" and usuario.ID_ROL = 10)");
+			
+            dataGrupal = new HashMap<String, Object>();
+            while (rs.next())
+            {
+                totalRegistro++;
+                dataIndividual = new HashMap<String, Object>();
+               dataIndividual.put("ID_EMPRESA", rs.getString("ID_EMPRESA"));
+               dataIndividual.put("ID_PROYECTO", rs.getString("ID_PROYECTO"));
+               dataIndividual.put("NOMBRE", rs.getString("NOMBRE"));
+               dataIndividual.put("FECHA_CREACION", rs.getString("FECHA_CREACION"));
+               dataIndividual.put("ID_TIPO", rs.getString("ID_TIPO"));
+ 	       dataIndividual.put("OBSERVACION_ACTUAL", rs.getString("OBSERVACION_ACTUAL"));
+               dataIndividual.put("ID_PROYECTO_PADRE", rs.getString("ID_PROYECTO_PADRE"));
+               dataIndividual.put("ID_PROYECTO_TEMPLATE", rs.getString("ID_PROYECTO_TEMPLATE"));
+               dataIndividual.put("ID_AREA", rs.getString("ID_AREA"));
+               dataIndividual.put("NOMBRE_AREA", rs.getString("NOMBRE_AREA"));
+               dataIndividual.put("CODI_GRUPO_PROYECTO", rs.getString("CODI_GRUPO_PROYECTO"));
+               dataIndividual.put("NOMBRE_GRUPO_PROYECTO", rs.getString("NOMBRE_GRUPO_PROYECTO"));
+               dataIndividual.put("ID_AREA_CLIENTE", rs.getString("ID_AREA_CLIENTE"));
+               dataIndividual.put("NOMBRE_AREA_CLIENTE", rs.getString("NOMBRE_AREA_CLIENTE"));
+               dataIndividual.put("ID_SUCURSAL", rs.getString("ID_SUCURSAL"));
+               dataIndividual.put("NOMBRE_SUCURSAL", rs.getString("NOMBRE_SUCURSAL"));
+               dataIndividual.put("CODI_GRUPO_SUCURSAL", rs.getString("CODI_GRUPO_SUCURSAL"));
+               dataIndividual.put("NOMBRE_GRUPO_SUCURSAL", rs.getString("NOMBRE_GRUPO_SUCURSAL"));
+               dataIndividual.put("CENTRO_COSTO_SUCURSAL", rs.getString("CENTRO_COSTO_SUCURSAL"));
+               dataIndividual.put("ID_ESTADO_PROYECTO", rs.getString("ID_ESTADO_PROYECTO"));
+               dataIndividual.put("NOMBRE_ESTADO_PROYECTO", rs.getString("NOMBRE_ESTADO_PROYECTO"));
+               dataIndividual.put("SLA_PLAZOS", rs.getString("SLA_PLAZOS"));
+               dataIndividual.put("DOCUMENTOS_ADJUNTOS", rs.getString("DOCUMENTOS_ADJUNTOS"));
+               dataIndividual.put("AVANCE_REAL_PROYECTO", rs.getString("AVANCE_REAL_PROYECTO"));
+	       dataIndividual.put("ID_PRIORIDAD", rs.getString("ID_PRIORIDAD"));
+               dataIndividual.put("NOMBRE_PRIORIDAD", rs.getString("NOMBRE_PRIORIDAD"));
+               dataIndividual.put("ID_FORMULARIO_PROYECTO", rs.getString("ID_FORMULARIO_PROYECTO"));
+               dataIndividual.put("URL_FORMULARIO_PROYECTO", rs.getString("URL_FORMULARIO_PROYECTO"));
+               dataIndividual.put("ID_USUARIO_CREACION", rs.getString("ID_USUARIO_CREACION"));
+               dataIndividual.put("NOMBRE_USUARIO_CREACION", rs.getString("NOMBRE_USUARIO_CREACION"));
+               dataIndividual.put("ID_USUARIO_MODIFICACION", rs.getString("ID_USUARIO_MODIFICACION"));
+               dataIndividual.put("NOMBRE_USUARIO_MODIFICACION", rs.getString("NOMBRE_USUARIO_MODIFICACION"));
+               dataIndividual.put("FECHA_MODIFICACION_FMT", rs.getString("FECHA_MODIFICACION_FMT"));
+               dataIndividual.put("ID_REQUERIMIENTO", rs.getString("ID_REQUERIMIENTO"));
+               dataIndividual.put("NOMBRE_REQUERIMIENTO", rs.getString("NOMBRE_REQUERIMIENTO"));
+               dataIndividual.put("ID_TIPOSOLICITUD", rs.getString("ID_TIPOSOLICITUD"));
+               dataIndividual.put("NOMBRE_SOLICITUD", rs.getString("NOMBRE_SOLICITUD"));
+               dataIndividual.put("ID_USUARIO_JEFE_PROYECTO", rs.getString("ID_USUARIO_JEFE_PROYECTO"));
+               dataIndividual.put("NOMBRE_JEFEPROYECTO", rs.getString("NOMBRE_JEFEPROYECTO"));
+               dataIndividual.put("ID_TAREA_ABUELO", rs.getString("ID_TAREA_ABUELO"));
+               dataIndividual.put("NOMBRE_TAREA_ABUELO", rs.getString("NOMBRE_TAREA_ABUELO"));
+               dataIndividual.put("ID_TIPO_TAREA_ABUELO", rs.getString("ID_TIPO_TAREA_ABUELO"));
+               dataIndividual.put("NOMBRE_TIPO_ABUELO", rs.getString("NOMBRE_TIPO_ABUELO"));
+               dataIndividual.put("ID_ESTADO_ABUELO", rs.getString("ID_ESTADO_ABUELO"));
+               dataIndividual.put("AVANCE_REAL_ABUELO", rs.getString("AVANCE_REAL_ABUELO"));
+               dataIndividual.put("FECHA_PLAN_INI_ABUELO", rs.getString("FECHA_PLAN_INI_ABUELO"));
+               dataIndividual.put("FECHA_REAL_INIPROY", rs.getString("FECHA_REAL_INIPROY"));
+               dataIndividual.put("FECHA_REAL_FINPROY", rs.getString("FECHA_REAL_FINPROY"));
+               dataIndividual.put("FECHA_PLAN_INIPROY", rs.getString("FECHA_PLAN_INIPROY"));
+               dataIndividual.put("FECHA_PLAN_FINPROY", rs.getString("FECHA_PLAN_FINPROY"));
+               dataIndividual.put("ID_TAREA_PADRE", rs.getString("ID_TAREA_PADRE"));
+               dataIndividual.put("NOMBRE_TAREA_PADRE", rs.getString("NOMBRE_TAREA_PADRE"));
+               dataIndividual.put("ID_TIPO_TAREA_PADRE", rs.getString("ID_TIPO_TAREA_PADRE"));
+               dataIndividual.put("NOMBRE_TIPO_PADRE", rs.getString("NOMBRE_TIPO_PADRE"));
+               dataIndividual.put("ID_ESTADO_PADRE", rs.getString("ID_ESTADO_PADRE"));
+               dataIndividual.put("FECHA_PLAN_INI_PADRE", rs.getString("FECHA_PLAN_INI_PADRE"));
+               dataIndividual.put("ID_TAREA_TEMPLATE_PADRE", rs.getString("ID_TAREA_TEMPLATE_PADRE"));
+               dataIndividual.put("NOMBRE_TAREA_TEMPLATE_PADRE", rs.getString("NOMBRE_TAREA_TEMPLATE_PADRE"));
+               dataIndividual.put("ID_PROYECTO_ENLACETEMPLATE_PADRE", rs.getString("ID_PROYECTO_ENLACETEMPLATE_PADRE"));
+               dataIndividual.put("ID_PROYECTO_ENLACE_PADRE", rs.getString("ID_PROYECTO_ENLACE_PADRE"));
+               dataIndividual.put("DATA_HITOS", rs.getString("DATA_HITOS"));
+               dataIndividual.put("CANTIDADTAREAPADRE", rs.getString("CANTIDADTAREAPADRE"));
+             dataGrupal.put(String.valueOf(totalRegistro), dataIndividual);
+            }
+            String json = gson.toJson(dataGrupal);
+            response.setHeader("access-control-allow-origin", "*");
+            out.print(json);
+
+        } catch (SQLException e) {
+            //System.out.println("Connection Failed! Check output console");
+            logger.error("Error durante la consulta a la base de datos. "+e.getMessage());
+            //e.printStackTrace();
+        } finally {
+            if (datasource != null)
+            {
+                try {
+                        datasource.close();
+                    }
+                    catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+            }
+            if (rs != null)
+            {
+                try {
+                    rs.close();
+                }
+                catch (SQLException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+
+            if (stmt != null){
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+}

@@ -1,0 +1,314 @@
+package cl.gesvita.ws.obtenerbitacoratarea;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.net.URL;
+
+import oracle.jdbc.OracleTypes;
+import oracle.sql.CLOB;
+
+import java.sql.CallableStatement;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import java.text.SimpleDateFormat;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.google.gson.Gson;
+
+import org.apache.tomcat.jdbc.pool.DataSource;
+import org.apache.tomcat.jdbc.pool.PoolProperties;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+
+import java.util.Properties;
+import java.util.regex.PatternSyntaxException;
+
+
+/**
+ * Servlet implementation class ObtenerBitacoraTarea
+ */
+@WebServlet("/WSObtenerBitacoraTarea/ObtenerBitacoraTarea")
+public class ObtenerBitacoraTarea extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+    static Logger logger = Logger.getLogger(ObtenerBitacoraTarea.class);
+
+    /**
+     * @see HttpServlet#HttpServlet()
+     */
+    public ObtenerBitacoraTarea() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+
+    /**
+     * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+     */
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("application/json");
+        String requestS = "";
+
+        PrintWriter out = response.getWriter();
+        try {
+            Class.forName("oracle.jdbc.driver.OracleDriver");
+        } catch (ClassNotFoundException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+
+        Properties prop = new Properties();
+        Properties propsLog4 = new Properties();
+        PoolProperties p = new PoolProperties();
+
+        InputStream inputStreamLog4 = this.getClass().getResourceAsStream("log4j.properties");
+        propsLog4.load(inputStreamLog4);
+        PropertyConfigurator.configure(propsLog4);
+        String archivoPro = System.getProperty("catalina.base") + "/webapps/propiedades/db.properties";
+
+        prop.load(new FileInputStream(archivoPro));
+
+        p.setUrl(prop.getProperty("urlConexion"));
+        p.setDriverClassName(prop.getProperty("driverClass"));
+        p.setUsername(prop.getProperty("userName"));
+        p.setPassword(prop.getProperty("password"));
+        p.setJmxEnabled(Boolean.parseBoolean(prop.getProperty("jmxEnabled")));
+        p.setTestWhileIdle(Boolean.parseBoolean(prop.getProperty("testWhileIdle")));
+        p.setTestOnBorrow(Boolean.parseBoolean(prop.getProperty("testOnBorrow")));
+        p.setValidationQuery(prop.getProperty("validationQuery"));
+        p.setTestOnReturn(Boolean.parseBoolean(prop.getProperty("testOnReturn")));
+        p.setValidationInterval(Long.parseLong(prop.getProperty("validationInterval")));
+        p.setTimeBetweenEvictionRunsMillis(Integer.parseInt(prop.getProperty("timeBetweenEvictionRunsMillis")));
+        p.setMaxActive(Integer.parseInt(prop.getProperty("maxActive")));
+        p.setInitialSize(Integer.parseInt(prop.getProperty("initialSize")));
+        p.setMaxWait(Integer.parseInt(prop.getProperty("maxWait")));
+        p.setRemoveAbandonedTimeout(Integer.parseInt(prop.getProperty("removeAbandonedTimeout")));
+        p.setMinEvictableIdleTimeMillis(Integer.parseInt(prop.getProperty("minEvictableIdleTimeMillis")));
+        p.setMinIdle(Integer.parseInt(prop.getProperty("minIdle")));
+        p.setLogAbandoned(Boolean.parseBoolean(prop.getProperty("logAbandoned")));
+        p.setRemoveAbandoned(Boolean.parseBoolean(prop.getProperty("removeAbandoned")));
+        p.setJdbcInterceptors(
+                "org.apache.tomcat.jdbc.pool.interceptor.ConnectionState;"+
+                "org.apache.tomcat.jdbc.pool.interceptor.StatementFinalizer");
+
+        DataSource datasource = new DataSource();
+        datasource.setPoolProperties(p);
+
+        Map<String, Object> dataIndividual = null;
+        Map<String, Object> dataGrupal = null;
+        Connection connection = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        Gson gson = new Gson();
+        int totalRegistro=0;
+
+        Map<String, String> m = new HashMap<String, String>();
+        try {
+            StringBuilder sb = new StringBuilder();
+
+        String s;
+        while ((s = request.getReader().readLine()) != null) {
+            sb.append(s);
+        }
+        //obtener json a array
+        requestS = sb.toString();
+
+        if (requestS.length() > 0)
+        {
+            requestS = requestS.substring(0, sb.length() - 1);
+            requestS = requestS.substring(1);
+        }
+        String[] splitStr = null;
+
+        int iTot = 0;
+        requestS = requestS.replace("\"", "");
+        requestS = requestS.replace("\'", "");
+        if (requestS.length() > 0)
+        {
+            if (requestS.contains(","))
+            {
+                splitStr = requestS.split(",");
+                for (String val : splitStr)
+                {
+                    String[] srSpl = val.split(":");
+                    m.put(srSpl[0].trim().toString(), srSpl[1].trim().toString());
+                }
+            }
+            else
+            {
+                String[] srSpl = requestS.split(":");
+                m.put(srSpl[0].trim().toString(), srSpl[1].trim().toString());
+            }
+        }
+          // BYSECURITY logger.info("JSON cargado");
+        }
+        catch (NullPointerException e1)
+        {
+            logger.error("Ha ocurrido un error de tipo NullPointer. " + e1.getMessage());
+        }
+        catch (IllegalArgumentException e2)
+        {
+            logger.error("Ha ocurrido un error de tipo IllegalArgument. " + e2.getMessage());
+        }
+        catch (IndexOutOfBoundsException e3)
+        {
+            logger.error("Ha ocurrido un error de tipo IndexOutOfBounds. "+e3.getMessage());
+        }
+        catch (Exception e4)
+        {
+            logger.error("Ha ocurrido un error. " + e4.getMessage());
+        }
+
+        try {
+            connection = datasource.getConnection();
+            StringBuilder StringSql = new StringBuilder();
+            // Campos de la consulta con sus tipos
+            SimpleDateFormat formato_ddmmyyyy = new SimpleDateFormat("dd/MM/yyyy");
+            String[] camposytipos = {"ID_BITACORA","I","ID_USUARIO","I","NOMBRE_COMPLETO","S","CODI_USUARIO","S","TELEFONO","S","CORREO","S","ID_TAREA","I","ID_PROYECTO","I","COMENTARIO_BITACORA","S","FECHA_CREACION","D","FECHA_MODIFICACION","D","FECHA_CREACION_FMT","S","FECHA_CREACION_FMT_DIA","S","FECHA_MODIFICACION_FMT","S","FECHA_MODIFICACION_FMT_DIA","S","ESTADO_LECTURA","S","FECHA_ULTIMALECTURA","D","FECHA_ULTIMALECTURA_FMT","S","FECHA_ULTIMALECTURA_FMT_DIA","S","TIPO_COMENTARIO_BITACORA","S","ID_USUARIO_TO","I","NOMBRE_COMPLETO_TO","S","CODI_USUARIO_TO","S","TELEFONO_TO","S","CORREO_TO","S","SUBJECT_BITACORA","S","NOMBRE_MODULO_ORIGEN","S","ID_USUARIO_ULTIMALECTURA","I","NOMBRE_COMPLETO_ULTLEC","S","CODI_USUARIO_ULTLEC","S","TELEFONO_ULTLEC","S","CORREO_ULTLEC","S","ID_BITACORA_PADRE","I","DATA_EXTENDIDA_BITACORA","S"};
+
+            // Construir el SQL
+            StringSql.append("SELECT * FROM VW_PROYECTO_BITACORA");
+            String sqlWhereAnd = " WHERE ";
+            for (int i = 0; i < camposytipos.length; i += 2) {
+                if (m.containsKey(camposytipos[i].toLowerCase())) {
+                    if (camposytipos[i + 1].charAt(0) == 'D') {
+                        StringSql.append(sqlWhereAnd + camposytipos[i] + " = to_date( ? , 'dd/mm/yyyy')");
+                    } else {
+                        StringSql.append(sqlWhereAnd + camposytipos[i] + " = ?");
+                    }
+                    sqlWhereAnd = " AND ";
+                }
+            }
+            // BYSECURITY logger.debug("Query NUEVA: " + StringSql.toString());
+
+            stmt = connection.prepareStatement(StringSql.toString());
+            for (int i = 0, j = 1; i < camposytipos.length; i += 2) {
+                if (m.containsKey(camposytipos[i].toLowerCase())) {
+                    switch (camposytipos[i + 1].charAt(0)) {
+                        case 'I':
+                            int intVal = Integer.parseInt(m.get(camposytipos[i].toLowerCase()));
+                            // BYSECURITY logger.debug("val[" + j + "]= " + intVal);
+                            stmt.setInt(j, intVal);
+                            break;
+                        case 'F':
+                            float floatVal = Float.parseFloat(m.get(camposytipos[i].toLowerCase()));
+                            // BYSECURITY logger.debug("val[" + j + "]= " + floatVal);
+                            stmt.setFloat(j, floatVal);
+                            break;
+                        case 'S':
+                        case 'D':
+                            String val = m.get(camposytipos[i].toLowerCase());
+                            // BYSECURITY logger.debug("val[" + j + "]= " + val);
+                            stmt.setString(j, val);
+                            break;
+                    }
+                    j++;
+                }
+            }
+
+            rs = stmt.executeQuery();
+//            stmt = connection.createStatement();
+//            rs = stmt.executeQuery("SELECT * FROM VW_PROYECTO_BITACORA WHERE "+
+//"DECODE('"+m.get("fecha_ultimalectura")+"', 'null', '*', FECHA_ULTIMALECTURA) = DECODE('"+m.get("fecha_ultimalectura")+"', 'null', '*', to_date('"+m.get("fecha_ultimalectura")+"', 'dd/mm/yyyy')) AND DECODE('"+m.get("fecha_ultimalectura_fmt")+"', 'null', '*', FECHA_ULTIMALECTURA_FMT) = DECODE('"+m.get("fecha_ultimalectura_fmt")+"', 'null', '*', '"+m.get("fecha_ultimalectura_fmt")+"') AND DECODE('"+m.get("fecha_ultimalectura_fmt_dia")+"', 'null', '*', FECHA_ULTIMALECTURA_FMT_DIA) = DECODE('"+m.get("fecha_ultimalectura_fmt_dia")+"', 'null', '*', '"+m.get("fecha_ultimalectura_fmt_dia")+"') AND DECODE('"+m.get("tipo_comentario_bitacora")+"', 'null', '*', TIPO_COMENTARIO_BITACORA) = DECODE('"+m.get("tipo_comentario_bitacora")+"', 'null', '*', '"+m.get("tipo_comentario_bitacora")+"') AND DECODE('"+m.get("id_usuario_to")+"', 'null', '*', ID_USUARIO_TO) = DECODE('"+m.get("id_usuario_to")+"', 'null', '*', "+m.get("id_usuario_to")+") AND DECODE('"+m.get("nombre_completo_to")+"', 'null', '*', NOMBRE_COMPLETO_TO) = DECODE('"+m.get("nombre_completo_to")+"', 'null', '*', '"+m.get("nombre_completo_to")+"') AND DECODE('"+m.get("codi_usuario_to")+"', 'null', '*', CODI_USUARIO_TO) = DECODE('"+m.get("codi_usuario_to")+"', 'null', '*', '"+m.get("codi_usuario_to")+"') AND DECODE('"+m.get("telefono_to")+"', 'null', '*', TELEFONO_TO) = DECODE('"+m.get("telefono_to")+"', 'null', '*', '"+m.get("telefono_to")+"') AND DECODE('"+m.get("correo_to")+"', 'null', '*', CORREO_TO) = DECODE('"+m.get("correo_to")+"', 'null', '*', '"+m.get("correo_to")+"') AND DECODE('"+m.get("subject_bitacora")+"', 'null', '*', SUBJECT_BITACORA) = DECODE('"+m.get("subject_bitacora")+"', 'null', '*', '"+m.get("subject_bitacora")+"') AND DECODE('"+m.get("nombre_modulo_origen")+"', 'null', '*', NOMBRE_MODULO_ORIGEN) = DECODE('"+m.get("nombre_modulo_origen")+"', 'null', '*', '"+m.get("nombre_modulo_origen")+"') AND DECODE('"+m.get("id_usuario_ultimalectura")+"', 'null', '*', ID_USUARIO_ULTIMALECTURA) = DECODE('"+m.get("id_usuario_ultimalectura")+"', 'null', '*', "+m.get("id_usuario_ultimalectura")+") AND DECODE('"+m.get("nombre_completo_ultlec")+"', 'null', '*', NOMBRE_COMPLETO_ULTLEC) = DECODE('"+m.get("nombre_completo_ultlec")+"', 'null', '*', '"+m.get("nombre_completo_ultlec")+"') AND DECODE('"+m.get("codi_usuario_ultlec")+"', 'null', '*', CODI_USUARIO_ULTLEC) = DECODE('"+m.get("codi_usuario_ultlec")+"', 'null', '*', '"+m.get("codi_usuario_ultlec")+"') AND DECODE('"+m.get("telefono_ultlec")+"', 'null', '*', TELEFONO_ULTLEC) = DECODE('"+m.get("telefono_ultlec")+"', 'null', '*', '"+m.get("telefono_ultlec")+"') AND DECODE('"+m.get("correo_ultlec")+"', 'null', '*', CORREO_ULTLEC) = DECODE('"+m.get("correo_ultlec")+"', 'null', '*', '"+m.get("correo_ultlec")+"') AND DECODE('"+m.get("id_bitacora_padre")+"', 'null', '*', ID_BITACORA_PADRE) = DECODE('"+m.get("id_bitacora_padre")+"', 'null', '*', "+m.get("id_bitacora_padre")+") AND DECODE('"+m.get("data_extendida_bitacora")+"', 'null', '*', DATA_EXTENDIDA_BITACORA) = DECODE('"+m.get("data_extendida_bitacora")+"', 'null', '*', '"+m.get("data_extendida_bitacora")+"') AND DECODE('"+m.get("id_bitacora")+"', 'null', '*', ID_BITACORA) = DECODE('"+m.get("id_bitacora")+"', 'null', '*', "+m.get("id_bitacora")+") AND DECODE('"+m.get("id_usuario")+"', 'null', '*', ID_USUARIO) = DECODE('"+m.get("id_usuario")+"', 'null', '*', "+m.get("id_usuario")+") AND DECODE('"+m.get("nombre_completo")+"', 'null', '*', NOMBRE_COMPLETO) = DECODE('"+m.get("nombre_completo")+"', 'null', '*', '"+m.get("nombre_completo")+"') AND DECODE('"+m.get("codi_usuario")+"', 'null', '*', CODI_USUARIO) = DECODE('"+m.get("codi_usuario")+"', 'null', '*', '"+m.get("codi_usuario")+"') AND DECODE('"+m.get("telefono")+"', 'null', '*', TELEFONO) = DECODE('"+m.get("telefono")+"', 'null', '*', '"+m.get("telefono")+"') AND DECODE('"+m.get("correo")+"', 'null', '*', CORREO) = DECODE('"+m.get("correo")+"', 'null', '*', '"+m.get("correo")+"') AND DECODE('"+m.get("id_tarea")+"', 'null', '*', ID_TAREA) = DECODE('"+m.get("id_tarea")+"', 'null', '*', "+m.get("id_tarea")+") AND DECODE('"+m.get("id_proyecto")+"', 'null', '*', ID_PROYECTO) = DECODE('"+m.get("id_proyecto")+"', 'null', '*', "+m.get("id_proyecto")+") AND DECODE('"+m.get("comentario_bitacora")+"', 'null', '*', COMENTARIO_BITACORA) = DECODE('"+m.get("comentario_bitacora")+"', 'null', '*', '"+m.get("comentario_bitacora")+"') AND DECODE('"+m.get("fecha_creacion")+"', 'null', '*', FECHA_CREACION) = DECODE('"+m.get("fecha_creacion")+"', 'null', '*', to_date('"+m.get("fecha_creacion")+"', 'dd/mm/yyyy')) AND DECODE('"+m.get("fecha_modificacion")+"', 'null', '*', FECHA_MODIFICACION) = DECODE('"+m.get("fecha_modificacion")+"', 'null', '*', to_date('"+m.get("fecha_modificacion")+"', 'dd/mm/yyyy')) AND DECODE('"+m.get("fecha_creacion_fmt")+"', 'null', '*', FECHA_CREACION_FMT) = DECODE('"+m.get("fecha_creacion_fmt")+"', 'null', '*', '"+m.get("fecha_creacion_fmt")+"') AND DECODE('"+m.get("fecha_creacion_fmt_dia")+"', 'null', '*', FECHA_CREACION_FMT_DIA) = DECODE('"+m.get("fecha_creacion_fmt_dia")+"', 'null', '*', '"+m.get("fecha_creacion_fmt_dia")+"') AND DECODE('"+m.get("fecha_modificacion_fmt")+"', 'null', '*', FECHA_MODIFICACION_FMT) = DECODE('"+m.get("fecha_modificacion_fmt")+"', 'null', '*', '"+m.get("fecha_modificacion_fmt")+"') AND DECODE('"+m.get("fecha_modificacion_fmt_dia")+"', 'null', '*', FECHA_MODIFICACION_FMT_DIA) = DECODE('"+m.get("fecha_modificacion_fmt_dia")+"', 'null', '*', '"+m.get("fecha_modificacion_fmt_dia")+"') AND DECODE('"+m.get("estado_lectura")+"', 'null', '*', ESTADO_LECTURA) = DECODE('"+m.get("estado_lectura")+"', 'null', '*', '"+m.get("estado_lectura")+"')");
+
+            dataGrupal = new HashMap<String, Object>();
+            while (rs.next())
+            {
+                totalRegistro++;
+                dataIndividual = new HashMap<String, Object>();
+               dataIndividual.put("ID_BITACORA", rs.getString("ID_BITACORA"));
+               dataIndividual.put("ID_USUARIO", rs.getString("ID_USUARIO"));
+               dataIndividual.put("NOMBRE_COMPLETO", rs.getString("NOMBRE_COMPLETO"));
+               dataIndividual.put("CODI_USUARIO", rs.getString("CODI_USUARIO"));
+               dataIndividual.put("TELEFONO", rs.getString("TELEFONO"));
+               dataIndividual.put("CORREO", rs.getString("CORREO"));
+               dataIndividual.put("ID_TAREA", rs.getString("ID_TAREA"));
+               dataIndividual.put("ID_PROYECTO", rs.getString("ID_PROYECTO"));
+               dataIndividual.put("COMENTARIO_BITACORA", rs.getString("COMENTARIO_BITACORA"));
+               dataIndividual.put("FECHA_CREACION", rs.getString("FECHA_CREACION"));
+               dataIndividual.put("FECHA_MODIFICACION", rs.getString("FECHA_MODIFICACION"));
+               dataIndividual.put("FECHA_CREACION_FMT", rs.getString("FECHA_CREACION_FMT"));
+               dataIndividual.put("FECHA_CREACION_FMT_DIA", rs.getString("FECHA_CREACION_FMT_DIA"));
+               dataIndividual.put("FECHA_MODIFICACION_FMT", rs.getString("FECHA_MODIFICACION_FMT"));
+               dataIndividual.put("FECHA_MODIFICACION_FMT_DIA", rs.getString("FECHA_MODIFICACION_FMT_DIA"));
+               dataIndividual.put("ESTADO_LECTURA", rs.getString("ESTADO_LECTURA"));
+               dataIndividual.put("FECHA_ULTIMALECTURA", rs.getString("FECHA_ULTIMALECTURA"));
+               dataIndividual.put("FECHA_ULTIMALECTURA_FMT", rs.getString("FECHA_ULTIMALECTURA_FMT"));
+               dataIndividual.put("FECHA_ULTIMALECTURA_FMT_DIA", rs.getString("FECHA_ULTIMALECTURA_FMT_DIA"));
+               dataIndividual.put("TIPO_COMENTARIO_BITACORA", rs.getString("TIPO_COMENTARIO_BITACORA"));
+               dataIndividual.put("ID_USUARIO_TO", rs.getString("ID_USUARIO_TO"));
+               dataIndividual.put("NOMBRE_COMPLETO_TO", rs.getString("NOMBRE_COMPLETO_TO"));
+               dataIndividual.put("CODI_USUARIO_TO", rs.getString("CODI_USUARIO_TO"));
+               dataIndividual.put("TELEFONO_TO", rs.getString("TELEFONO_TO"));
+               dataIndividual.put("CORREO_TO", rs.getString("CORREO_TO"));
+               dataIndividual.put("SUBJECT_BITACORA", rs.getString("SUBJECT_BITACORA"));
+               dataIndividual.put("NOMBRE_MODULO_ORIGEN", rs.getString("NOMBRE_MODULO_ORIGEN"));
+               dataIndividual.put("ID_USUARIO_ULTIMALECTURA", rs.getString("ID_USUARIO_ULTIMALECTURA"));
+               dataIndividual.put("NOMBRE_COMPLETO_ULTLEC", rs.getString("NOMBRE_COMPLETO_ULTLEC"));
+               dataIndividual.put("CODI_USUARIO_ULTLEC", rs.getString("CODI_USUARIO_ULTLEC"));
+               dataIndividual.put("TELEFONO_ULTLEC", rs.getString("TELEFONO_ULTLEC"));
+               dataIndividual.put("CORREO_ULTLEC", rs.getString("CORREO_ULTLEC"));
+               dataIndividual.put("ID_BITACORA_PADRE", rs.getString("ID_BITACORA_PADRE"));
+               dataIndividual.put("DATA_EXTENDIDA_BITACORA", rs.getString("DATA_EXTENDIDA_BITACORA"));
+             dataGrupal.put(String.valueOf(totalRegistro), dataIndividual);
+            }
+            String json = gson.toJson(dataGrupal);
+            response.setHeader("access-control-allow-origin", "*");
+            out.print(json);
+
+        } catch (SQLException e) {
+            //System.out.println("Connection Failed! Check output console");
+            logger.error("Error durante la consulta a la base de datos. "+e.getMessage());
+            //e.printStackTrace();
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                    rs = null;
+                } catch (SQLException e) {
+                    logger.error(e.getMessage(), e.fillInStackTrace());
+                }
+            }
+
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                    stmt = null;
+                } catch (SQLException e) {
+                    logger.error(e.getMessage(), e.fillInStackTrace());
+                }
+            }
+
+            try {
+                if (connection!= null && !connection.isClosed()){
+                    connection.close();
+                    connection= null;
+                }
+            } catch (SQLException sqle) {
+                logger.error(sqle.getMessage(), sqle.fillInStackTrace());
+            }
+            try {
+                datasource.close();
+            } catch (Exception e) {
+                logger.error(e.getMessage(), e.fillInStackTrace());
+            }
+        }
+    }
+
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context path="">
+   <!-- ResourceLink name="jdbc/SGPIDB"
+    global="jdbc/SGPIDB"
+    type="javax.sql.DataSource"
+    / -->
+</Context>
+

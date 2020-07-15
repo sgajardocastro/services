@@ -1,0 +1,148 @@
+package cl.gesvita.ws.subirarchivo;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.util.Properties;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.MultipartConfig;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.Part;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+
+import java.util.Random;
+
+/**
+ * Servlet implementation class SubirArchivo
+ */
+@WebServlet("/SubirArchivo")
+@MultipartConfig(fileSizeThreshold=1024*1024*2, // 2MB
+maxFileSize=1024*1024*10,      // 10MB
+maxRequestSize=1024*1024*50)   // 50MB
+public class SubirArchivo extends HttpServlet {
+	private static final long serialVersionUID = 1L;
+	static Logger logger = Logger.getLogger(SubirArchivo.class);
+    /**
+     * @see HttpServlet#HttpServlet()
+     */
+    public SubirArchivo() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+
+	/**
+	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
+	 */
+	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// TODO Auto-generated method stub
+		response.getWriter().append("Served at: ").append(request.getContextPath());
+	}
+
+	/**
+	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
+	 */
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// TODO Auto-generated method stub
+		PrintWriter out = response.getWriter();
+		Properties prop = new Properties();
+		Properties propsLog4 = new Properties();
+		
+    	response.setHeader("Access-Control-Allow-Origin", "*");
+    	try {
+    		
+    		InputStream inputStreamLog4 = getClass().getResourceAsStream("log4j.properties");
+    	      propsLog4.load(inputStreamLog4);
+    	      PropertyConfigurator.configure(propsLog4);
+    	      InputStream stream = getClass().getResourceAsStream("proyecto.properties");
+    	      prop.load(stream);
+    	      
+    	      String savePath = prop.getProperty("ruta");
+    	      
+    	      File fileSaveDir = new File(savePath);
+    	      if (!fileSaveDir.exists()) {
+    	        fileSaveDir.mkdir();
+    	      }
+    	      String fileName = null;
+    	      String fileName2 = null;
+    	      for (Part part : request.getParts())
+    	      {
+    	        fileName = extractFileName(part);
+    	        fileName = generarNombreArchivo(fileName);
+    	        part.write(savePath + File.separator + fileName);
+    	        fileName2 = fileName;
+    	      }
+    	      logger.info("Archivo guardado con exito en " + savePath + File.separator + fileName2);
+    	      response.setContentType("application/json");
+    	      
+    	      out.print("{\"resultadoEjecucion\":\"OK\",\"archivo\":\"" + fileName2 + "\",\"rutaArchivo\":\"" + savePath + fileName2 + "\"}");
+	        
+    	}
+    	catch (IOException e)
+    	{
+    		logger.info("Error durante el proceso del archivo: " + e.getMessage());
+    	}
+    	catch (ServletException e)
+    	{
+    		logger.info("Error durante el proceso web: " + e.getMessage());
+    	}
+    	
+    	catch (Exception e)
+    	{
+    		logger.info("Ha ocurrido un error grave: " + e.getLocalizedMessage());
+    	}
+	}
+
+	/**
+	 * @see HttpServlet#doOptions(HttpServletRequest, HttpServletResponse)
+	 */
+	private String generarNombreArchivo(String nombre)
+	{
+		try {
+			Random r = new Random();
+			String nombref = "";
+			String pa = nombre;
+	    	String[] splt = pa.split(".");
+	    	String formatoF = splt[splt.length - 1];
+	    	String alphabet = "123xyz";
+			for (int i = 0; i < 50; i++) {
+				nombref += alphabet.charAt(r.nextInt(alphabet.length()));
+		    } 
+			logger.info("Nombre archivo generado: "+nombref + "." + formatoF);
+			return nombref + "." + formatoF;
+		}
+		catch (Exception e)
+		{
+			logger.error("No se ha podido extraer formato de archivo, devolviendo nombre original");
+			return nombre;
+		}
+    	//message = "Formato: "+formatoF;
+    	//message = String.valueOf(splt.length-1);
+	}
+	protected void doOptions(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// TODO Auto-generated method stub
+		response.setHeader("Access-Control-Allow-Origin", "*");
+		response.setHeader("Access-Control-Allow-Methods", "GET, POST");
+		response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+		response.setHeader("Access-Control-Max-Age", "86400");
+	    response.setHeader("Allow", "GET, HEAD, POST, TRACE, OPTIONS");
+	}
+	private String extractFileName(Part part) {
+        String contentDisp = part.getHeader("content-disposition");
+        String[] items = contentDisp.split(";");
+        for (String s : items) {
+            if (s.trim().startsWith("filename")) {
+                return s.substring(s.indexOf("=") + 2, s.length()-1);
+            }
+        }
+        return "";
+    }
+
+}

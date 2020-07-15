@@ -1,0 +1,253 @@
+package cl.gesvita.ws.enviocorreotemplate;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import org.apache.tomcat.jdbc.pool.DataSource;
+import org.apache.tomcat.jdbc.pool.PoolProperties;
+
+import com.google.gson.Gson;
+
+import cl.gesvita.ws.enviocorreo.BusinessEnviarCorreo;
+import cl.gesvita.util.ClobUtil;
+import cl.gesvita.ws.obtener.exception.GesvitaException;
+
+/**
+ * Servlet implementation class EnvioCorreoTemplate
+ */
+@WebServlet("/WSEnvioCorreoTemplateDirect/EnvioCorreoTemplateDirect")
+public class EnvioCorreoTemplateDirect extends HttpServlet {
+
+    static Logger logger = Logger.getLogger(EnvioCorreoTemplateDirect.class);
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * @see HttpServlet#HttpServlet()
+     */
+    public EnvioCorreoTemplateDirect() {
+        super();
+        // TODO Auto-generated constructor stub
+    }
+
+    /**
+     * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
+     * response)
+     */
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // TODO Auto-generated method stub
+        response.getWriter().append("Served at: ").append(request.getContextPath());
+    }
+
+    /**
+     * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
+     * response)
+     */
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("application/json");
+        String requestS = "";
+        BusinessEnviarCorreo envi = null;
+        PrintWriter out = response.getWriter();
+        try {
+            Class.forName("oracle.jdbc.driver.OracleDriver");
+        } catch (ClassNotFoundException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+
+        Properties prop = new Properties();
+        Properties propsLog4 = new Properties();
+        PoolProperties p = new PoolProperties();
+
+        InputStream inputStreamLog4 = this.getClass().getResourceAsStream("log4j.properties");
+        propsLog4.load(inputStreamLog4);
+        PropertyConfigurator.configure(propsLog4);
+        String archivoPro = System.getProperty("catalina.base") + "/webapps/propiedades/db.properties";
+
+        prop.load(new FileInputStream(archivoPro));
+
+        p.setUrl(prop.getProperty("urlConexion"));
+        p.setDriverClassName(prop.getProperty("driverClass"));
+        p.setUsername(prop.getProperty("userName"));
+        p.setPassword(prop.getProperty("password"));
+        p.setJmxEnabled(Boolean.parseBoolean(prop.getProperty("jmxEnabled")));
+        p.setTestWhileIdle(Boolean.parseBoolean(prop.getProperty("testWhileIdle")));
+        p.setTestOnBorrow(Boolean.parseBoolean(prop.getProperty("testOnBorrow")));
+        p.setValidationQuery(prop.getProperty("validationQuery"));
+        p.setTestOnReturn(Boolean.parseBoolean(prop.getProperty("testOnReturn")));
+        p.setValidationInterval(Long.parseLong(prop.getProperty("validationInterval")));
+        p.setTimeBetweenEvictionRunsMillis(Integer.parseInt(prop.getProperty("timeBetweenEvictionRunsMillis")));
+        p.setMaxActive(Integer.parseInt(prop.getProperty("maxActive")));
+        p.setInitialSize(Integer.parseInt(prop.getProperty("initialSize")));
+        p.setMaxWait(Integer.parseInt(prop.getProperty("maxWait")));
+        p.setRemoveAbandonedTimeout(Integer.parseInt(prop.getProperty("removeAbandonedTimeout")));
+        p.setMinEvictableIdleTimeMillis(Integer.parseInt(prop.getProperty("minEvictableIdleTimeMillis")));
+        p.setMinIdle(Integer.parseInt(prop.getProperty("minIdle")));
+        p.setLogAbandoned(Boolean.parseBoolean(prop.getProperty("logAbandoned")));
+        p.setRemoveAbandoned(Boolean.parseBoolean(prop.getProperty("removeAbandoned")));
+        p.setJdbcInterceptors(
+                "org.apache.tomcat.jdbc.pool.interceptor.ConnectionState;"
+                + "org.apache.tomcat.jdbc.pool.interceptor.StatementFinalizer");
+
+        DataSource datasource = new DataSource();
+        datasource.setPoolProperties(p);
+
+        Map<String, Object> dataIndividual = null;
+        Map<String, Object> dataGrupal = null;
+        Connection connection = null;
+        Statement stmt = null;
+        CallableStatement cstmt = null;
+        ResultSet rs = null;
+        Gson gson = new Gson();
+        int totalRegistro = 0;
+        int id_usuario = 0;
+        String codigoResultadoToken = "";
+        Map<String, Object> dataRetornar = new HashMap<String, Object>();
+        Map<String, String> m = new HashMap<String, String>();
+        try {
+            StringBuilder sb = new StringBuilder();
+
+            String s;
+            while ((s = request.getReader().readLine()) != null) {
+                sb.append(s);
+            }
+            //obtener json a array
+            requestS = sb.toString();
+
+            if (requestS.length() > 0) {
+                requestS = requestS.substring(0, sb.length() - 1);
+                requestS = requestS.substring(1);
+            }
+            String[] splitStr = null;
+
+            int iTot = 0;
+            requestS = requestS.replace("\"", "");
+            requestS = requestS.replace("\'", "");
+            if (requestS.length() > 0) {
+                if (requestS.contains(",")) {
+                    splitStr = requestS.split(",");
+                    for (String val : splitStr) {
+                        String[] srSpl = val.split(":");
+                        m.put(srSpl[0].trim().toString(), srSpl[1].trim().toString());
+                    }
+                } else {
+                    String[] srSpl = requestS.split(":");
+                    m.put(srSpl[0].trim().toString(), srSpl[1].trim().toString());
+                }
+            }
+            // BYSECURITY logger.info("JSON cargado");
+        } catch (NullPointerException e1) {
+            logger.error("Ha ocurrido un error de tipo NullPointer. " + e1.getMessage());
+        } catch (IllegalArgumentException e2) {
+            logger.error("Ha ocurrido un error de tipo IllegalArgument. " + e2.getMessage());
+        } catch (IndexOutOfBoundsException e3) {
+            logger.error("Ha ocurrido un error de tipo IndexOutOfBounds. " + e3.getMessage());
+        } catch (Exception e4) {
+            logger.error("Ha ocurrido un error. " + e4.getMessage());
+        }
+
+        try {
+            String retu = "";
+            connection = datasource.getConnection();
+            dataGrupal = new HashMap<String, Object>();
+            String nombreDestinatario = m.get("nombredestinatario");
+
+            cstmt = connection.prepareCall("{call pkg_monitor_utilities.CREATE_MAIL_BODY(?,?,?,?,?,?)}");
+            cstmt.setInt(1, Integer.parseInt(m.get("id_notificacion")));
+            cstmt.setString(2, nombreDestinatario);
+            cstmt.registerOutParameter(3, Types.CLOB);
+            cstmt.registerOutParameter(4, Types.VARCHAR);
+            cstmt.registerOutParameter(5, Types.NUMERIC);
+            cstmt.registerOutParameter(6, Types.VARCHAR);
+            cstmt.execute();
+            String fileComplet = ClobUtil.clobToString(cstmt.getClob(3));
+            String subjectNotificacion = cstmt.getString(4);
+            retu = cstmt.getString(6);
+            try {
+                if (cstmt.getInt(5) == 0) {
+
+                    //llamar a WS de envio de correo
+                    try {
+                        envi = new BusinessEnviarCorreo();
+                        String subj = "Notificación: [" + subjectNotificacion + "]";
+                        envi.Enviar(m.get("varmail"), subj, fileComplet);
+
+                        dataGrupal.put("codigoError", "0");
+                        dataGrupal.put("mensajeEjecucion", "Correo enviado");
+
+                        dataGrupal.put("out_codigo", "OK");
+                        dataGrupal.put("out_mensaje", "Correo enviado");
+                    } catch (Exception ee) {
+                        dataGrupal.put("codigoError", "2");
+                        dataGrupal.put("mensajeEjecucion", "No se ha podido enviar el correo");
+
+                        logger.error(ee.fillInStackTrace());
+                    }
+
+                } else {
+                    dataGrupal.put("codigoError", "1");
+                    dataGrupal.put("mensajeEjecucion", "No se ha podido enviar el archivo. ");
+                    throw new GesvitaException(retu);
+                }
+            } catch (GesvitaException e) {
+                logger.error(e.getMessage());
+            }
+            String json = gson.toJson(dataGrupal);
+            response.setHeader("access-control-allow-origin", "*");
+            out.print(json);
+        } catch (SQLException e) {
+            //System.out.println("Connection Failed! Check output console");
+            logger.error("Error durante la consulta a la base de datos. ", e.fillInStackTrace());
+            //e.printStackTrace();
+        } finally {
+            if (datasource != null) {
+                try {
+                    datasource.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (cstmt != null) {
+                try {
+                    cstmt.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+}
+
